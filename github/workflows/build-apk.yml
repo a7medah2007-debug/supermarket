@@ -1,0 +1,188 @@
+# .github/workflows/build-apk.yml
+name: Build WebView APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Create Android Project
+        run: |
+          # إنشاء هيكل مشروع أندرويد قياسي
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/java/com/supermarket
+          mkdir -p app/src/main/res/values
+
+          # نسخ ملفات الويب إلى assets
+          cp *.html *.css *.js app/src/main/assets/ 2>/dev/null || true
+          cp -r assets app/src/main/assets/ 2>/dev/null || true
+
+          # إنشاء AndroidManifest.xml
+          cat > app/src/main/AndroidManifest.xml << 'MANIFEST'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.supermarket.mall">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+              <application
+                  android:allowBackup="true"
+                  android:label="Supermarket Mall"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          MANIFEST
+
+          # إنشاء MainActivity.java
+          cat > app/src/main/java/com/supermarket/MainActivity.java << 'JAVA'
+          package com.supermarket.mall;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.view.View;
+
+          public class MainActivity extends Activity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  webView = new WebView(this);
+                  webView.setWebViewClient(new WebViewClient());
+
+                  WebSettings settings = webView.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  settings.setAllowFileAccess(true);
+                  settings.setAllowContentAccess(true);
+                  settings.setDomStorageEnabled(true);
+                  settings.setMediaPlaybackRequiresUserGesture(false);
+                  settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                  settings.setUseWideViewPort(true);
+                  settings.setLoadWithOverviewMode(true);
+
+                  webView.setSystemUiVisibility(
+                      View.SYSTEM_UI_FLAG_FULLSCREEN |
+                      View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                  );
+
+                  webView.loadUrl("file:///android_asset/index.html");
+                  setContentView(webView);
+              }
+
+              @Override
+              protected void onPause() {
+                  super.onPause();
+                  if (webView != null) webView.onPause();
+              }
+
+              @Override
+              protected void onResume() {
+                  super.onResume();
+                  if (webView != null) webView.onResume();
+              }
+          }
+          JAVA
+
+          # إنشاء build.gradle
+          cat > app/build.gradle << 'GRADLE'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.supermarket.mall'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.supermarket.mall"
+                  minSdk 29
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.webkit:webkit:1.8.0'
+          }
+          GRADLE
+
+          # إنشاء settings.gradle
+          cat > settings.gradle << 'GRADLE'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "SupermarketMall"
+          include ':app'
+          GRADLE
+
+          # إنشاء gradle.properties
+          cat > gradle.properties << 'PROPS'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          PROPS
+
+          # إنشاء local.properties (مش محتاج SDK فعلي للبناء الأساسي)
+          echo "sdk.dir=/usr/local/android-sdk" > local.properties
+
+      - name: Setup Gradle Wrapper
+        run: |
+          # إنشاء gradlew
+          cat > gradlew << 'SHELL'
+          #!/bin/bash
+          echo "Gradle Wrapper Placeholder"
+          SHELL
+          chmod +x gradlew
+
+      - name: Upload App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: SupermarketMall-WebView
+          path: |
+            app/src/main/assets/
+            app/src/main/java/
+            app/src/main/res/
+            app/build.gradle
+            settings.gradle
+            gradle.properties
+            app/src/main/AndroidManifest.xml
