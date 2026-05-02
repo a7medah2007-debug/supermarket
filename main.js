@@ -1,6 +1,5 @@
 // ========== main.js ==========
 import * as THREE from 'three';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
@@ -141,11 +140,7 @@ rightController.addEventListener('axismove', (event) => {
 });
 // ========== الـ Loader ==========
 const loader = new GLTFLoader();
-// إعداد Draco Loader للملفات المضغوطة
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-dracoLoader.setDecoderConfig({ type: 'js' });
-loader.setDRACOLoader(dracoLoader);
+
 // ========== دوال مساعدة ==========
 function loadModel(path, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1]) {
   return new Promise((resolve, reject) => {
