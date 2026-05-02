@@ -1,4 +1,4 @@
-name: Build Supermarket VR APK
+name: Build Supeermarket VR APK
 
 on:
   push:
@@ -26,24 +26,27 @@ jobs:
         run: |
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: 5. تجهيز المجلدات ونقل الملفات (المسارات المحدثة)
+      - name: 5. تجهيز المجلدات ونقل الملفات (الهيكل الجديد)
         run: |
-          # إنشاء مجلد الـ Assets الرئيسي والمجلدات الفرعية داخله
+          # إنشاء مجلدات الأصول داخل بنية الأندرويد
           mkdir -p app/src/main/assets/libs
-          mkdir -p app/src/main/assets/assets
+          mkdir -p app/src/main/assets/assets/models
           mkdir -p app/src/main/java/com/supermarket/mall
           mkdir -p app/src/main/res/values
 
-          # نسخ ملفات الويب الأساسية للجذر (Root)
+          # 1. نسخ كل ملفات الويب الأساسية من الجذر
           cp index.html app/src/main/assets/ 2>/dev/null || true
-          cp *.css app/src/main/assets/ 2>/dev/null || true
-          cp *.js app/src/main/assets/ 2>/dev/null || true
+          cp style.css app/src/main/assets/ 2>/dev/null || true
+          cp config.js app/src/main/assets/ 2>/dev/null || true
+          cp main.js app/src/main/assets/ 2>/dev/null || true
+          cp movement.js app/src/main/assets/ 2>/dev/null || true
+          cp interactions.js app/src/main/assets/ 2>/dev/null || true
 
-          # نسخ المكتبات من مجلدها الجديد إلى مجلد libs داخل الـ APK
-          cp supermarket/libs/*.js app/src/main/assets/libs/ 2>/dev/null || true
+          # 2. نسخ المكتبات لمجلد libs داخل الـ APK
+          cp libs/*.js app/src/main/assets/libs/ 2>/dev/null || true
           
-          # نسخ الموديلات من مجلد assets الرئيسي إلى مجلد assets داخل الـ APK
-          cp -r assets/* app/src/main/assets/assets/ 2>/dev/null || true
+          # 3. نسخ الموديلات لمجلد assets/models داخل الـ APK
+          cp -r assets/models/* app/src/main/assets/assets/models/ 2>/dev/null || true
 
       - name: 6. إنشاء ملفات إعداد الأندرويد
         run: |
@@ -71,7 +74,7 @@ jobs:
           </manifest>
           EOF
 
-          # ملف الـ MainActivity (محرك الـ WebView)
+          # ملف الـ MainActivity
           cat > app/src/main/java/com/supermarket/mall/MainActivity.java << 'EOF'
           package com.supermarket.mall;
           import android.app.Activity;
@@ -95,7 +98,6 @@ jobs:
                   settings.setDatabaseEnabled(true);
                   settings.setMediaPlaybackRequiresUserGesture(false);
                   
-                  // وضع ملء الشاشة الكامل
                   webView.setSystemUiVisibility(
                       View.SYSTEM_UI_FLAG_LOW_PROFILE |
                       View.SYSTEM_UI_FLAG_FULLSCREEN |
@@ -111,31 +113,16 @@ jobs:
           }
           EOF
 
-          # ملف الـ Settings.gradle
+          # ملفات Gradle الأساسية
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           rootProject.name = "SupermarketVR"
           include ':app'
           EOF
 
-          # ملف الـ build.gradle (معدل للبناء السريع والتوقيع التلقائي)
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.2'
-          }
+          plugins { id 'com.android.application' version '8.2.2' }
           android {
               namespace 'com.supermarket.mall'
               compileSdk 34
@@ -146,31 +133,22 @@ jobs:
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes {
-                  debug {
-                      minifyEnabled false
-                  }
-                  release {
-                      minifyEnabled false
-                  }
-              }
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'androidx.webkit:webkit:1.8.0'
           }
           EOF
-
           echo "android.useAndroidX=true" > gradle.properties
 
-      - name: 7. البناء والتوقيع (Build & Sign)
+      - name: 7. البناء (Build APK)
         run: |
           gradle wrapper --gradle-version 8.4
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: 8. رفع الـ APK الجاهز للتثبيت
+      - name: 8. رفع الـ APK
         uses: actions/upload-artifact@v4
         with:
-          name: Supermarket-VR-Ready
+          name: Supermarket-VR-Final
           path: app/build/outputs/apk/debug/*.apk
