@@ -18,7 +18,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          # شلنا سطر الـ cache من هنا عشان ميعملش Error
 
       - name: 3. إعداد الأندرويد
         uses: android-actions/setup-android@v3
@@ -38,9 +37,9 @@ jobs:
           cp *.js app/src/main/assets/ 2>/dev/null || true
           cp -r assets app/src/main/assets/ 2>/dev/null || true
 
-      - name: 6. إنشاء ملفات المشروع (Gradle & Manifest)
+      - name: 6. إنشاء ملفات المشروع (The Fix)
         run: |
-          # AndroidManifest
+          # 1. AndroidManifest
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -63,7 +62,7 @@ jobs:
           </manifest>
           EOF
 
-          # MainActivity
+          # 2. MainActivity
           cat > app/src/main/java/com/supermarket/mall/MainActivity.java << 'EOF'
           package com.supermarket.mall;
           import android.app.Activity;
@@ -100,9 +99,31 @@ jobs:
           }
           EOF
 
-          # build.gradle
+          # 3. Settings.gradle (المسؤول عن تحميل الـ Plugins)
+          cat > settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "SupermarketVR"
+          include ':app'
+          EOF
+
+          # 4. build.gradle (إصدار محدث يحدد النسخة)
           cat > app/build.gradle << 'EOF'
-          plugins { id 'com.android.application' }
+          plugins {
+              id 'com.android.application' version '8.2.2'
+          }
           android {
               namespace 'com.supermarket.mall'
               compileSdk 34
@@ -113,7 +134,6 @@ jobs:
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes { release { minifyEnabled false } }
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -121,9 +141,6 @@ jobs:
           }
           EOF
 
-          # settings.gradle
-          echo "rootProject.name = 'SupermarketVR'" > settings.gradle
-          echo "include ':app'" >> settings.gradle
           echo "android.useAndroidX=true" > gradle.properties
 
       - name: 7. البناء (Build)
