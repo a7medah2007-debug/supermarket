@@ -1,54 +1,48 @@
-name: Build APK (WebView)
+name: Build Supermarket VR APK
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: # يسمح لك بتشغيل البناء يدوياً من الموقع
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: 1. سحب الكود من المستودع
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: 2. إعداد جافا (Java 17)
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
-      - name: Setup Android SDK
+      - name: 3. إعداد أدوات الأندرويد (Official Setup)
+        uses: android-actions/setup-android@v3
+
+      - name: 4. تثبيت المكونات اللازمة (SDK & Build Tools)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-latest.zip
-          unzip -q commandlinetools-linux-latest.zip
-          ls -la
-          mv cmdline-tools latest || mv latest/cmdline-tools latest 2>/dev/null || true
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Accept licenses
-        run: yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-
-      - name: Install SDK components
+      - name: 5. تجهيز هيكل تطبيق الأندرويد
         run: |
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-      - name: Create project structure
-        run: |
+          # إنشاء المجلدات
           mkdir -p app/src/main/assets
-          mkdir -p app/src/main/java/com/supermarket
+          mkdir -p app/src/main/java/com/supermarket/mall
           mkdir -p app/src/main/res/values
 
+          # نقل ملفات الويب (مشروعك) للمجلد المخصص في الأندرويد
           cp *.html app/src/main/assets/ 2>/dev/null || true
           cp *.css app/src/main/assets/ 2>/dev/null || true
           cp *.js app/src/main/assets/ 2>/dev/null || true
           cp -r assets app/src/main/assets/ 2>/dev/null || true
 
+      - name: 6. كتابة ملفات الإعداد (Manifest & Gradle)
+        run: |
+          # ملف الـ AndroidManifest
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -61,7 +55,7 @@ jobs:
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
-                      android:configChanges="orientation|screenSize">
+                      android:configChanges="orientation|screenSize|screenLayout">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -71,7 +65,8 @@ jobs:
           </manifest>
           EOF
 
-          cat > app/src/main/java/com/supermarket/MainActivity.java << 'EOF'
+          # ملف الـ MainActivity.java (القلب النابض للتطبيق)
+          cat > app/src/main/java/com/supermarket/mall/MainActivity.java << 'EOF'
           package com.supermarket.mall;
           import android.app.Activity;
           import android.os.Bundle;
@@ -79,6 +74,7 @@ jobs:
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           import android.view.View;
+
           public class MainActivity extends Activity {
               private WebView webView;
               @Override
@@ -90,20 +86,26 @@ jobs:
                   settings.setJavaScriptEnabled(true);
                   settings.setAllowFileAccess(true);
                   settings.setDomStorageEnabled(true);
+                  settings.setDatabaseEnabled(true);
                   settings.setMediaPlaybackRequiresUserGesture(false);
+                  
+                  // تفعيل وضع ملء الشاشة الكامل للنظارة
                   webView.setSystemUiVisibility(
+                      View.SYSTEM_UI_FLAG_LOW_PROFILE |
                       View.SYSTEM_UI_FLAG_FULLSCREEN |
-                      View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                      View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                      View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                      View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                   );
+                  
                   webView.loadUrl("file:///android_asset/index.html");
                   setContentView(webView);
               }
           }
           EOF
 
-          echo '<resources><string name="app_name">Supermarket VR</string></resources>' > app/src/main/res/values/strings.xml
-
+          # ملف الـ build.gradle
           cat > app/build.gradle << 'EOF'
           plugins { id 'com.android.application' }
           android {
@@ -117,40 +119,29 @@ jobs:
                   versionName "1.0"
               }
               buildTypes {
-                  release { minifyEnabled false }
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
+                  release {
+                      minifyEnabled false
+                  }
               }
           }
-          dependencies { implementation 'androidx.webkit:webkit:1.8.0' }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'androidx.webkit:webkit:1.8.0'
+          }
           EOF
 
-          cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories { google(); mavenCentral() }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
-          }
-          rootProject.name = "SupermarketMall"
-          include ':app'
-          EOF
-
+          # إعدادات المشروع العامة
+          echo "rootProject.name = 'SupermarketVR'" > settings.gradle
+          echo "include ':app'" >> settings.gradle
           echo "android.useAndroidX=true" > gradle.properties
-          echo "org.gradle.jvmargs=-Xmx2048m" >> gradle.properties
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      - name: Setup Gradle
-        run: gradle wrapper --gradle-version 8.4
+      - name: 7. بناء ملف الـ APK
+        run: |
+          gradle wrapper --gradle-version 8.4
+          ./gradlew assembleRelease
 
-      - name: Build APK
-        run: ./gradlew assembleRelease
-
-      - name: Upload APK
+      - name: 8. رفع الملف النهائي (Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: Supermarket-VR-APK
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: Supermarket-VR-Release
+          path: app/build/outputs/apk/release/*.apk
