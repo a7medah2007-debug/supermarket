@@ -1,8 +1,8 @@
 // ========== movement.js ==========
 // ========== movement.js ==========
 import * as THREE from 'three';
-import { scene, camera } from './main.js';
-import { PLAYER, CAMERA, WALKERS, STAFF } from './config.js';
+import { scene, camera } from 'main.js';
+import { PLAYER, CAMERA, WALKERS, STAFF } from 'config.js';
 
 // ========== راي كاستر للتصادم ==========
 const raycaster = new THREE.Raycaster();
