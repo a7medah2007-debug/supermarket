@@ -1,59 +1,54 @@
-# .github/workflows/build-apk.yml
-name: Build WebView APK (Latest)
+name: Build APK (WebView)
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:  # يسمح بالتشغيل اليدوي
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # أحدث إصدار Ubuntu
+    runs-on: ubuntu-latest
     steps:
-      # 1. سحب الكود (أحدث إصدار من الـ Action)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. تثبيت Java 17 (مطلوب لأحدث Android SDK)
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. تثبيت Android SDK Command-line Tools (آخر إصدار)
       - name: Setup Android SDK
         run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          # تحميل أحدث إصدار من أدوات سطر الأوامر (دائمًا محدث)
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-latest.zip
           unzip -q commandlinetools-linux-latest.zip
-          mv cmdline-tools latest
+          ls -la
+          mv cmdline-tools latest || mv latest/cmdline-tools latest 2>/dev/null || true
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
 
-      # 4. قبول الترخيص وتثبيت مكونات البناء
-      - name: Install Android SDK components
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - name: Accept licenses
+        run: yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      # 5. إنشاء هيكل مشروع Android
-      - name: Create Android Project Structure
+      - name: Install SDK components
+        run: |
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Create project structure
         run: |
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/supermarket
           mkdir -p app/src/main/res/values
 
-          # نسخ جميع ملفات المشروع إلى assets (بما فيها assets/Models)
           cp *.html app/src/main/assets/ 2>/dev/null || true
           cp *.css app/src/main/assets/ 2>/dev/null || true
           cp *.js app/src/main/assets/ 2>/dev/null || true
-          # نسخ مجلد assets بأكمله (الموديلات، الأصوات، إلخ)
           cp -r assets app/src/main/assets/ 2>/dev/null || true
 
-          # إنشاء AndroidManifest.xml
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -76,7 +71,6 @@ jobs:
           </manifest>
           EOF
 
-          # إنشاء MainActivity.java (WebView)
           cat > app/src/main/java/com/supermarket/MainActivity.java << 'EOF'
           package com.supermarket.mall;
           import android.app.Activity;
@@ -108,14 +102,10 @@ jobs:
           }
           EOF
 
-          # إنشاء strings.xml
           echo '<resources><string name="app_name">Supermarket VR</string></resources>' > app/src/main/res/values/strings.xml
 
-          # إنشاء build.gradle (باستخدام أحدث Gradle AGP)
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          plugins { id 'com.android.application' }
           android {
               namespace 'com.supermarket.mall'
               compileSdk 34
@@ -127,54 +117,38 @@ jobs:
                   versionName "1.0"
               }
               buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
+                  release { minifyEnabled false }
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
-          dependencies {
-              implementation 'androidx.webkit:webkit:1.8.0'
-          }
+          dependencies { implementation 'androidx.webkit:webkit:1.8.0' }
           EOF
 
-          # إنشاء settings.gradle وملفات gradle أخرى (أحدث إصدار)
           cat > settings.gradle << 'EOF'
           pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
           rootProject.name = "SupermarketMall"
           include ':app'
           EOF
 
-          # إنشاء gradle.properties
           echo "android.useAndroidX=true" > gradle.properties
           echo "org.gradle.jvmargs=-Xmx2048m" >> gradle.properties
-
-          # إنشاء local.properties
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      # 6. بناء الـ APK
-      - name: Build APK
-        run: |
-          # تثبيت Gradle (نستخدم wrapper)
-          gradle wrapper --gradle-version 8.4
-          ./gradlew assembleRelease
+      - name: Setup Gradle
+        run: gradle wrapper --gradle-version 8.4
 
-      # 7. رفع الـ APK كـ artifact
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
