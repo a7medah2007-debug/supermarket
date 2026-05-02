@@ -1,16 +1,12 @@
 // ========== main.js ==========
-import 'movement.js';
-import 'interactions.js';
+import './movement.js';
+import './interactions.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-import { SCENE, CAMERA, MALL, PRODUCTS, FRIDGES, JUICES, WATER, VEGETABLES, PRICE_BOARDS, STAFF, CARTS, WALKERS, SIGNS } from './config.js';
-// ========== العناصر الأساسية ==========
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';import { SCENE, CAMERA, MALL, PRODUCTS, FRIDGES, JUICES, WATER, VEGETABLES, PRICE_BOARDS, STAFF, CARTS, WALKERS, SIGNS } from 'config.js';
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SCENE.background);
-
-
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, CAMERA.near, CAMERA.far);
 camera.position.set(...CAMERA.position);
 
