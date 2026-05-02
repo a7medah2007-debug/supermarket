@@ -3,46 +3,44 @@ name: Build Supermarket VR APK
 on:
   push:
     branches: [main]
-  workflow_dispatch: # يسمح لك بتشغيل البناء يدوياً من الموقع
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. سحب الكود من المستودع
+      - name: 1. سحب الكود
         uses: actions/checkout@v4
 
-      - name: 2. إعداد جافا (Java 17)
+      - name: 2. إعداد جافا
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
+          # شلنا سطر الـ cache من هنا عشان ميعملش Error
 
-      - name: 3. إعداد أدوات الأندرويد (Official Setup)
+      - name: 3. إعداد الأندرويد
         uses: android-actions/setup-android@v3
 
-      - name: 4. تثبيت المكونات اللازمة (SDK & Build Tools)
+      - name: 4. تثبيت الأدوات
         run: |
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: 5. تجهيز هيكل تطبيق الأندرويد
+      - name: 5. تجهيز المجلدات
         run: |
-          # إنشاء المجلدات
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/supermarket/mall
           mkdir -p app/src/main/res/values
 
-          # نقل ملفات الويب (مشروعك) للمجلد المخصص في الأندرويد
           cp *.html app/src/main/assets/ 2>/dev/null || true
           cp *.css app/src/main/assets/ 2>/dev/null || true
           cp *.js app/src/main/assets/ 2>/dev/null || true
           cp -r assets app/src/main/assets/ 2>/dev/null || true
 
-      - name: 6. كتابة ملفات الإعداد (Manifest & Gradle)
+      - name: 6. إنشاء ملفات المشروع (Gradle & Manifest)
         run: |
-          # ملف الـ AndroidManifest
+          # AndroidManifest
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -65,7 +63,7 @@ jobs:
           </manifest>
           EOF
 
-          # ملف الـ MainActivity.java (القلب النابض للتطبيق)
+          # MainActivity
           cat > app/src/main/java/com/supermarket/mall/MainActivity.java << 'EOF'
           package com.supermarket.mall;
           import android.app.Activity;
@@ -88,8 +86,6 @@ jobs:
                   settings.setDomStorageEnabled(true);
                   settings.setDatabaseEnabled(true);
                   settings.setMediaPlaybackRequiresUserGesture(false);
-                  
-                  // تفعيل وضع ملء الشاشة الكامل للنظارة
                   webView.setSystemUiVisibility(
                       View.SYSTEM_UI_FLAG_LOW_PROFILE |
                       View.SYSTEM_UI_FLAG_FULLSCREEN |
@@ -98,14 +94,13 @@ jobs:
                       View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
                       View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                   );
-                  
                   webView.loadUrl("file:///android_asset/index.html");
                   setContentView(webView);
               }
           }
           EOF
 
-          # ملف الـ build.gradle
+          # build.gradle
           cat > app/build.gradle << 'EOF'
           plugins { id 'com.android.application' }
           android {
@@ -118,11 +113,7 @@ jobs:
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
-              }
+              buildTypes { release { minifyEnabled false } }
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -130,17 +121,18 @@ jobs:
           }
           EOF
 
-          # إعدادات المشروع العامة
+          # settings.gradle
           echo "rootProject.name = 'SupermarketVR'" > settings.gradle
           echo "include ':app'" >> settings.gradle
           echo "android.useAndroidX=true" > gradle.properties
 
-      - name: 7. بناء ملف الـ APK
+      - name: 7. البناء (Build)
         run: |
           gradle wrapper --gradle-version 8.4
+          chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: 8. رفع الملف النهائي (Artifact)
+      - name: 8. رفع الـ APK
         uses: actions/upload-artifact@v4
         with:
           name: Supermarket-VR-Release
