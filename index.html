@@ -18,13 +18,16 @@
 
   <!-- Three.js Import Map -->
   <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-      }
+  {
+    "imports": {
+      "three": "./libs/three.module.js",
+      "three/addons/loaders/GLTFLoader.js": "./libs/GLTFLoader.js",
+      "three/addons/loaders/DRACOLoader.js": "./libs/DRACOLoader.js",
+      "three/addons/webxr/VRButton.js": "./libs/VRButton.js",
+      "three/addons/webxr/XRControllerModelFactory.js": "./libs/XRControllerModelFactory.js"
     }
-  </script>
+  }
+</script>
 
   <!-- ملفات JavaScript -->
   <script type="module" src="config.js"></script>
