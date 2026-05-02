@@ -1,8 +1,8 @@
 // ========== interactions.js ==========
 // ========== interactions.js ==========
 import * as THREE from 'three';
-import { scene, camera } from './main.js';
-import { SOUNDS } from './config.js';
+import { scene, camera } from 'main.js';
+import { SOUNDS } from 'config.js';
 
 // ========== حالة المستخدم ==========
 window.heldItem = null;         // المنتج الممسوك حاليًا
