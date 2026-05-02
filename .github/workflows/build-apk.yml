@@ -1,4 +1,4 @@
-name: Build Supeermarket VR APK
+name: Build Supermarket VR APK
 
 on:
   push:
@@ -26,45 +26,37 @@ jobs:
         run: |
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: 5. تجهيز المجلدات ونقل الملفات (الهيكل الجديد)
+      - name: 5. تجهيز هيكل المشروع (Android Project Structure)
         run: |
-          # إنشاء مجلدات الأصول داخل بنية الأندرويد
           mkdir -p app/src/main/assets/libs
           mkdir -p app/src/main/assets/assets/models
           mkdir -p app/src/main/java/com/supermarket/mall
           mkdir -p app/src/main/res/values
 
-          # 1. نسخ كل ملفات الويب الأساسية من الجذر
-          cp index.html app/src/main/assets/ 2>/dev/null || true
+          # نسخ ملفات الويب الأساسية
+          cp index.html app/src/main/assets/
           cp style.css app/src/main/assets/ 2>/dev/null || true
-          cp config.js app/src/main/assets/ 2>/dev/null || true
-          cp main.js app/src/main/assets/ 2>/dev/null || true
-          cp movement.js app/src/main/assets/ 2>/dev/null || true
-          cp interactions.js app/src/main/assets/ 2>/dev/null || true
+          cp config.js app/src/main/assets/
+          cp main.js app/src/main/assets/
+          cp movement.js app/src/main/assets/
+          cp interactions.js app/src/main/assets/
 
-          # 2. نسخ المكتبات لمجلد libs داخل الـ APK
-          cp libs/*.js app/src/main/assets/libs/ 2>/dev/null || true
-          
-          # 3. نسخ الموديلات لمجلد assets/models داخل الـ APK
+          # نسخ المكتبات (libs) والموديلات
+          cp -r libs/* app/src/main/assets/libs/ 2>/dev/null || true
           cp -r assets/models/* app/src/main/assets/assets/models/ 2>/dev/null || true
 
-      - name: 6. إنشاء ملفات إعداد الأندرويد
+      - name: 6. إنشاء ملفات إعداد الأندرويد (القوية)
         run: |
-          # ملف الـ Manifest
+          # 1. ملف الـ Manifest
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.supermarket.mall">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.supermarket.mall">
               <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="true"
                   android:label="Supermarket VR"
-                  android:icon="@android:drawable/sym_def_app_icon"
                   android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+                  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -74,7 +66,7 @@ jobs:
           </manifest>
           EOF
 
-          # ملف الـ MainActivity
+          # 2. ملف الـ MainActivity (مع تفعيل الوصول للملفات)
           cat > app/src/main/java/com/supermarket/mall/MainActivity.java << 'EOF'
           package com.supermarket.mall;
           import android.app.Activity;
@@ -85,27 +77,21 @@ jobs:
           import android.view.View;
 
           public class MainActivity extends Activity {
-              private WebView webView;
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  webView = new WebView(this);
-                  webView.setWebViewClient(new WebViewClient());
+                  WebView webView = new WebView(this);
                   WebSettings settings = webView.getSettings();
-                  settings.setJavaScriptEnabled(true);
-                  settings.setAllowFileAccess(true);
-                  settings.setDomStorageEnabled(true);
-                  settings.setDatabaseEnabled(true);
-                  settings.setMediaPlaybackRequiresUserGesture(false);
                   
-                  webView.setSystemUiVisibility(
-                      View.SYSTEM_UI_FLAG_LOW_PROFILE |
-                      View.SYSTEM_UI_FLAG_FULLSCREEN |
-                      View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                      View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                      View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                  );
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  settings.setAllowFileAccess(true);
+                  // السطرين السحريين لتشغيل الـ Modules محلياً
+                  settings.setAllowFileAccessFromFileURLs(true);
+                  settings.setAllowUniversalAccessFromFileURLs(true);
+                  
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
                   
                   webView.loadUrl("file:///android_asset/index.html");
                   setContentView(webView);
@@ -113,16 +99,20 @@ jobs:
           }
           EOF
 
-          # ملفات Gradle الأساسية
+          # 3. ملفات Gradle
+          cat > build.gradle << 'EOF'
+          buildscript { repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.2' } }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
           cat > settings.gradle << 'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           rootProject.name = "SupermarketVR"
           include ':app'
           EOF
 
           cat > app/build.gradle << 'EOF'
-          plugins { id 'com.android.application' version '8.2.2' }
+          apply plugin: 'com.android.application'
           android {
               namespace 'com.supermarket.mall'
               compileSdk 34
@@ -134,11 +124,8 @@ jobs:
                   versionName "1.0"
               }
           }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'androidx.webkit:webkit:1.8.0'
-          }
           EOF
+          
           echo "android.useAndroidX=true" > gradle.properties
 
       - name: 7. البناء (Build APK)
@@ -150,5 +137,5 @@ jobs:
       - name: 8. رفع الـ APK
         uses: actions/upload-artifact@v4
         with:
-          name: Supermarket-VR-Final
+          name: Supermarket-VR-Fixed-App
           path: app/build/outputs/apk/debug/*.apk
