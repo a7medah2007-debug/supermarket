@@ -1,4 +1,6 @@
 // ========== main.js ==========
+import './movement.js';
+import './interactions.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
